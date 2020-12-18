@@ -1,0 +1,46 @@
+#!/usr/bin/bash
+
+#PBS -l select=1:ncpus=1:mem=32gb
+#PBS -l walltime=2:00:00
+#PBS -N queryLocations
+#PBS -k eod
+#PBS -j oe
+#PBS -M j.ferrer@unsw.edu.au
+#PBS -m ae
+#PBS -J 1-36
+
+
+source $HOME/proyectos/UNSW/fire-analysis-aust-alps/load.env
+
+export OUTDIR=/srv/scratch/$(whoami)/aust-alps
+export SRC=/srv/ccrc/data43/z3346206/Deakin/
+export MAPS=/srv/scratch/$(whoami)/gisdata/aust-alps
+
+cd $TMPDIR
+
+module add python/2.7.15 perl/5.28.0 gdal/2.3.2
+module add R/4.0.2
+
+find $SRC -name "*.nc" > list.files
+cut -d"/" -f 1-9 list.files | uniq > list.dirs
+export TARGET1=$(sed -n ${PBS_ARRAY_INDEX}'p' list.dirs)
+export PERIOD=$(echo $TARGET1 |cut -d"/" -f 7)
+export MODEL=$(echo $TARGET1 |cut -d"/" -f 8)
+export PRM=$(echo $TARGET1 |cut -d"/" -f 9)
+
+IFS=$'\n'
+
+for SHAPEFILE in $(find $MAPS/ -name "*_min.shp")
+ do
+  export LAYERNAME=$(ogrinfo $SHAPEFILE | grep 1: | cut -d" " -f 2)
+  ogr2ogr -t_srs '+proj=utm +zone=55 +south +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs ' tst $SHAPEFILE -nln $LAYERNAME
+  #  ogr2ogr -t_srs 'EPSG:4326' tst $SHAPEFILE -nln $LAYERNAME
+ done
+
+Rscript --vanilla $SCRIPTDIR/bin/R/extract-NARCLiM-data.R
+#
+#
+# gdalwarp -s_srs EPSG:4326 NETCDF:${TARGET1}:tasmax -t_srs '+proj=utm +zone=55 +south +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs ' -te 370000 5800000 810000 6125000 -of 'GTiff' tasmax.tif
+# gdalwarp -s_srs EPSG:4326 NETCDF:${TARGET2}:tasmin -t_srs '+proj=utm +zone=55 +south +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs ' -te 370000 5800000 810000 6125000 -of 'GTiff' tasmin.tif
+# ## necesito establecer el IFS...
+# Field_Separator=$IFS
