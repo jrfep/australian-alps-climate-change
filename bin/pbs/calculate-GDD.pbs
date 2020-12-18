@@ -37,10 +37,4 @@ for SHAPEFILE in $(find $MAPS/ -name "*_min.shp")
   #  ogr2ogr -t_srs 'EPSG:4326' tst $SHAPEFILE -nln $LAYERNAME
  done
 
-Rscript --vanilla $SCRIPTDIR/bin/R/extract-NARCLiM-data.R
-#
-#
-# gdalwarp -s_srs EPSG:4326 NETCDF:${TARGET1}:tasmax -t_srs '+proj=utm +zone=55 +south +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs ' -te 370000 5800000 810000 6125000 -of 'GTiff' tasmax.tif
-# gdalwarp -s_srs EPSG:4326 NETCDF:${TARGET2}:tasmin -t_srs '+proj=utm +zone=55 +south +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs ' -te 370000 5800000 810000 6125000 -of 'GTiff' tasmin.tif
-# ## necesito establecer el IFS...
-# Field_Separator=$IFS
+Rscript --vanilla $SCRIPTDIR/bin/R/extract-NARCLiM-GDD-data.R
