@@ -10,7 +10,7 @@
 #PBS -J 1-36
 
 
-source $HOME/proyectos/UNSW/fire-analysis-aust-alps/load.env
+source $HOME/proyectos/UNSW/australian-alps-climate-change/load.env
 
 export OUTDIR=/srv/scratch/$(whoami)/aust-alps
 export SRC=/srv/ccrc/data43/z3346206/Deakin/
