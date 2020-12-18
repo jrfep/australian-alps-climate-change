@@ -1,8 +1,8 @@
 #!/usr/bin/bash
 
 #PBS -l select=1:ncpus=1:mem=32gb
-#PBS -l walltime=2:00:00
-#PBS -N queryLocations
+#PBS -l walltime=3:00:00
+#PBS -N NARCLiM-GDD
 #PBS -k eod
 #PBS -j oe
 #PBS -M j.ferrer@unsw.edu.au

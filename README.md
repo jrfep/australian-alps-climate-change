@@ -17,6 +17,9 @@ Clone and update local github repo
 
 ```sh
 ssh $zID@katana.restech.unsw.edu.au
+eval $(ssh-agent)
+ssh-add
+
 git clone git@github.com:jrfep/australian-alps-climate-change.git
 
 source $HOME/proyectos/UNSW/australian-alps-climate-change/load.env
@@ -42,6 +45,7 @@ Now run the batch scripts for GDD based on NARCLiM data for all models and scena
 ssh $zID@katana.restech.unsw.edu.au
 source $HOME/proyectos/UNSW/australian-alps-climate-change/load.env
 cd $WORKDIR
+mkdir -p $SCRIPTDIR/Rdata
 qsub -J 1-4 $SCRIPTDIR/bin/pbs/calculate-GDD.pbs
 qsub -J 5-60 $SCRIPTDIR/bin/pbs/calculate-GDD.pbs
 qstat -tu $(whoami)
