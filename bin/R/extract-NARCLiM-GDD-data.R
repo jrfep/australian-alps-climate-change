@@ -1,11 +1,16 @@
 #!R --vanilla
+
+## load libraries
 require(ncdf4)
 require(chron)
 require(raster)
 require(sf)
 require(abind)
 
+## date of origin of 2949-12-01
 ini.date <- chron(julian(x=6, d=1, y=c(1989:2080),origin.=c(month = 12, day = 1, year =1949)),origin.=c(month = 12, day = 1, year =1949))
+
+## Base temperature in Kelvin. Consider 0 or 6°C
 temp.base <- 273.15 + 6 # if 6°C is adequate...
 
 for (l in dir(Sys.getenv("TARGET1"),full.names=T,pattern="tasmax")) {
