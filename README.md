@@ -39,21 +39,16 @@ And three physical configurations of regional climate model:
 * R3
 
 Variables shared by Fei:  
-*
-* accumulated precipitation
-* apet
-* frost
-* mrsomean
-* pracc
-* daily mean, maximum and minimum 2-metre temperature: *tasmean*, *tasmax*, *tasmin*
-* wssmean
+* Accumulated Morton areal potential evapotranspiration (units: Kg m-2): *apet*
+* *frost*
+* Total soil moisture content (units: kg m-2): *mrsomean*
+* Accumulated precipitation (Kg m-2): *pracc*
+* Daily mean, maximum and minimum 2-metre Surface air temperature (units K): *tasmean*, *tasmax*, *tasmin*
+* Surface wind speed at 10m (units:  m s-1): *wssmean*
 
 Other available variables
 * surface pressure
 * 2-metre specific humidity (hourly)
-* 10-metre wind speed (hourly)
-* surface evaporation
-* soil moisture
 * snow amount (Luca et al. 2018)
 * sea surface temperature.
 
@@ -74,7 +69,7 @@ ssh $zID@kdm.restech.unsw.edu.au mkdir -p /srv/scratch/$zID/gisdata/aust-alps
 scp -r $WORKDIR/'all states meadows and shrublands' $zID@kdm.restech.unsw.edu.au:/srv/scratch/$zID/gisdata/aust-alps/
 ```
 
-Now I log into the katana node and use git to clone and update this repository:
+Now I log into the katana node and use `git` to clone and update this repository:
 
 ```sh
 ssh $zID@katana.restech.unsw.edu.au
@@ -90,7 +85,7 @@ cd $SCRIPTDIR
 git status
 ```
 
-Explore variables using an interactive PBS job:
+Explore variables using an interactive `pbs` job:
 
 ```sh
 ssh $zID@katana.restech.unsw.edu.au
@@ -99,12 +94,12 @@ cd $WORKDIR
 qsub -I -l select=1:ncpus=1:mem=32gb,walltime=4:00:00
 #" if we need a graphical session "
 ##qsub -I -X -l select=1:ncpus=1:mem=32gb,walltime=4:00:00
+module add python/2.7.15 perl/5.28.0 gdal/2.3.2
+gdalinfo /srv/ccrc/data43/z3346206/Deakin/1990-2009/CCCMA3.1/R1/CCRC_NARCliM_DAY_1990-1994_tasmean.nc | less
 
 ```
 
-
-
-Now run the batch scripts for GDD based on NARCLiM data for all models and scenarios:
+Now run the batch scripts for Growing degree days (GDD) based on NARCLiM data for all models and scenarios:
 
 ```sh
 ssh $zID@katana.restech.unsw.edu.au
@@ -120,3 +115,7 @@ qstat -tu $(whoami)
 Evans JP, Ji F, Lee C, Smith P, Argüeso D and Fita L (2014) Design of a regional climate modelling projection ensemble experiment – NARCliM . Geosci. Model Dev., 7, 621–629. https://doi.org/10.5194/gmd-7-621-2014
 
 Luca, A.D., Evans, J.P. & Ji, F. Australian snowpack in the NARCliM ensemble: evaluation, bias correction and future projections. Clim Dyn 51, 639–666 (2018). https://doi.org/10.1007/s00382-017-3946-9
+
+McMaster, Gregory S. and Wilhelm, Wallace, "Growing degree-days: one equation, two interpretations" (1997). Publications from USDA-ARS / UNL Faculty. 83. https://digitalcommons.unl.edu/usdaarsfacpub/83
+
+Nicholas Coops, Andrew Loughhead, Philip Ryan & Ron Hutton (2001) Development of daily spatial heat unit mapping from monthly climatic surfaces for the Australian continent, International Journal of Geographical Information Science, 15:4, 345-361, https://doi.org/10.1080/13658810010011401

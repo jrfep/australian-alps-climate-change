@@ -9,25 +9,30 @@
 #PBS -m ae
 #PBS -J 1-36
 
-
+## set up bash environment variables
 source $HOME/proyectos/UNSW/australian-alps-climate-change/load.env
-
 export OUTDIR=/srv/scratch/$(whoami)/aust-alps
 export SRC=/srv/ccrc/data43/z3346206/Deakin/
 export MAPS=/srv/scratch/$(whoami)/gisdata/aust-alps
 
+## change working directory
 cd $TMPDIR
 
+## load modules for analysis
 module add python/2.7.15 perl/5.28.0 gdal/2.3.2
 module add R/4.0.2
 
+## read list of files from SRC directory
 find $SRC -name "*.nc" > list.files
 cut -d"/" -f 1-9 list.files | uniq > list.dirs
+
+## choose a file using PBS array index
 export TARGET1=$(sed -n ${PBS_ARRAY_INDEX}'p' list.dirs)
 export PERIOD=$(echo $TARGET1 |cut -d"/" -f 7)
 export MODEL=$(echo $TARGET1 |cut -d"/" -f 8)
 export PRM=$(echo $TARGET1 |cut -d"/" -f 9)
 
+## get shapefiles from MAPS directory into the UTM projection if needed
 IFS=$'\n'
 
 for SHAPEFILE in $(find $MAPS/ -name "*_min.shp")
@@ -37,4 +42,5 @@ for SHAPEFILE in $(find $MAPS/ -name "*_min.shp")
   #  ogr2ogr -t_srs 'EPSG:4326' tst $SHAPEFILE -nln $LAYERNAME
  done
 
+## Run R script with the Growing degree days (GDD) calculation
 Rscript --vanilla $SCRIPTDIR/bin/R/extract-NARCLiM-GDD-data.R
