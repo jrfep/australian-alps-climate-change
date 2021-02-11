@@ -56,7 +56,7 @@ for(i in 1:nrow(y)) {
          aggregate(data.frame(n=DHC^0,GDD=ifelse(DHC>0,DHC,0)),
          list(year=cut(d,ini.date, label=1989:2079)),sum,na.rm=T)))
       }
-   save(file=sprintf("%s/Rdata/%s-%s-%s.rda",Sys.getenv("SCRIPTDIR"), Sys.getenv("PERIOD"), Sys.getenv("MODEL"), Sys.getenv("PRM")),i,j,GDD)
+   save(file=sprintf("%s/%s-%s-%s.rda",Sys.getenv("RDATA"), Sys.getenv("PERIOD"), Sys.getenv("MODEL"), Sys.getenv("PRM")),i,j,GDD)
 }
 gc()
 
@@ -65,4 +65,4 @@ gc()
 ss <- subset(GDD,n>360)
 dts <- with(ss,aggregate(GDD,list(lon,lat),sum))
 
-save(file=sprintf("%s/Rdata/%s-%s-%s.rda",Sys.getenv("SCRIPTDIR"),Sys.getenv("PERIOD"),Sys.getenv("MODEL"),Sys.getenv("PRM")),dts,GDD)
+save(file=sprintf("%s/%s-%s-%s.rda",Sys.getenv("RDATA"),Sys.getenv("PERIOD"),Sys.getenv("MODEL"),Sys.getenv("PRM")),dts,GDD)

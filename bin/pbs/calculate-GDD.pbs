@@ -14,6 +14,8 @@ source $HOME/proyectos/UNSW/australian-alps-climate-change/load.env
 export OUTDIR=/srv/scratch/$(whoami)/aust-alps
 export SRC=/srv/ccrc/data43/z3346206/Deakin/
 export MAPS=/srv/scratch/$(whoami)/gisdata/aust-alps
+export RDATA=/srv/scratch/$(whoami)/gisdata/aust-alps/Rdata
+mkdir -p $RDATA
 
 ## change working directory
 cd $TMPDIR
@@ -33,14 +35,14 @@ export MODEL=$(echo $TARGET1 |cut -d"/" -f 8)
 export PRM=$(echo $TARGET1 |cut -d"/" -f 9)
 
 ## get shapefiles from MAPS directory into the UTM projection if needed
-IFS=$'\n'
-
-for SHAPEFILE in $(find $MAPS/ -name "*_min.shp")
- do
-  export LAYERNAME=$(ogrinfo $SHAPEFILE | grep 1: | cut -d" " -f 2)
-  ogr2ogr -t_srs '+proj=utm +zone=55 +south +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs ' tst $SHAPEFILE -nln $LAYERNAME
-  #  ogr2ogr -t_srs 'EPSG:4326' tst $SHAPEFILE -nln $LAYERNAME
- done
+# IFS=$'\n'
+#
+# for SHAPEFILE in $(find $MAPS/ -name "*_min.shp")
+#  do
+#   export LAYERNAME=$(ogrinfo $SHAPEFILE | grep 1: | cut -d" " -f 2)
+#   ogr2ogr -t_srs '+proj=utm +zone=55 +south +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs ' tst $SHAPEFILE -nln $LAYERNAME
+#   #  ogr2ogr -t_srs 'EPSG:4326' tst $SHAPEFILE -nln $LAYERNAME
+#  done
 
 ## Run R script with the Growing degree days (GDD) calculation
 Rscript --vanilla $SCRIPTDIR/bin/R/extract-NARCLiM-GDD-data.R
