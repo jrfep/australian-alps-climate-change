@@ -18,6 +18,7 @@ require(abind)
 
 SCRIPTDIR <- sprintf("/home/%s/proyectos/UNSW/australian-alps-climate-change",system("whoami",intern=T))
 MAPS <- sprintf("/srv/scratch/%s/gisdata/aust-alps",system("whoami",intern=T))
+RDATA <- sprintf("/srv/scratch/%s/gisdata/aust-alps/Rdata",system("whoami",intern=T))
 PERIOD <- "1990-2009"
 MODEL <- "CCCMA3.1"
 PRM <- "R2"
@@ -57,7 +58,7 @@ if (!exists("gdd.eco")) {
    gdd.eco <- data.frame(eco.centroids)
 
    for (PERIOD in c("1990-2009","2020-2039","2060-2079")) {
-      load(sprintf("%s/Rdata/%s-%s-%s.rda",SCRIPTDIR,PERIOD,MODEL,PRM))
+      load(sprintf("%s/%s-%s-%s.rda",RDATA,PERIOD,MODEL,PRM))
 
       for (yy in unique(GDD$year)) {
          ss <- subset(GDD, year %in% yy & n>360 & lon>(min(eco.centroids[,1])-1) & lon<(max(eco.centroids[,1])+1) & lat>(min(eco.centroids[,2])-1) & lat<(max(eco.centroids[,2])+1))
@@ -163,7 +164,7 @@ if (!exists("gdd.col")) {
    gdd.col <- data.frame(xys2)
 
    for (PERIOD in c("1990-2009")) {
-      load(sprintf("%s/Rdata/%s-%s-%s.rda",SCRIPTDIR,PERIOD,MODEL,PRM))
+      load(sprintf("%s/%s-%s-%s.rda",RDATA,PERIOD,MODEL,PRM))
 
       for (yy in unique(GDD$year)) {
          ss <- subset(GDD, year %in% yy & n>360 & lon>(min(eco.centroids[,1])-1) & lon<(max(eco.centroids[,1])+1) & lat>(min(eco.centroids[,2])-1) & lat<(max(eco.centroids[,2])+1))

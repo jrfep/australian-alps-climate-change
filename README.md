@@ -105,7 +105,7 @@ Now run the batch scripts for Growing degree days (GDD) based on NARCLiM data fo
 ssh $zID@katana.restech.unsw.edu.au
 source $HOME/proyectos/UNSW/australian-alps-climate-change/load.env
 cd $WORKDIR
-mkdir -p $SCRIPTDIR/Rdata
+##mkdir -p $SCRIPTDIR/Rdata
 qsub -J 1-4 $SCRIPTDIR/bin/pbs/calculate-GDD.pbs
 qsub -J 5-36 $SCRIPTDIR/bin/pbs/calculate-GDD.pbs
 qstat -tu $(whoami)
