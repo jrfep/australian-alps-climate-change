@@ -27,14 +27,14 @@ PRM <- "R2"
 
 Target ecosystem is Feldmark, we use the shapefile with the final map:
 
-```{r setup, include=TRUE}
+```{r feldmark shape, include=TRUE}
 arch <- sprintf("%s/all states feldmark/final outputs/all_states_feldmark_min.shp",MAPS)
 eco.xy <- st_read(arch)
 ```
 
 Climate data is in coarse cells (10 km²), while ecosystems are very small (<40 ha)
 
-```{r setup, include=TRUE}
+```{r feldmark area, include=TRUE}
 eco.area <- st_area(eco.xy)
 units(eco.area) <- with(ud_units, ha)
 ##units(eco.area) <- with(ud_units, km^2)
@@ -45,7 +45,7 @@ Thus we can simplify the analysis using the centroids of the ecosystem polygons.
 
 
 
-```{r setup, include=TRUE}
+```{r feldmark centroids, include=TRUE}
 eco.centroids <- st_coordinates(st_transform(st_centroid(eco.xy),crs = "EPSG:4326"))
 
 ```
@@ -53,7 +53,7 @@ eco.centroids <- st_coordinates(st_transform(st_centroid(eco.xy),crs = "EPSG:432
 Load GDD data for one model and scenario and aggregate GDD values per cell using inverse distance weighted interpolation:
 
 
-```{r setup, include=TRUE}
+```{r calculate GDD, include=TRUE}
 if (!exists("gdd.eco")) {
    gdd.eco <- data.frame(eco.centroids)
 
@@ -85,7 +85,7 @@ head(gdd.eco)
 
 For one location, we can calculate the trend in annual GDD for the whole time period, and interpolate the expected values for years 2000 and 2050:
 
-```{r setup, include=TRUE}
+```{r interpolate values, include=TRUE}
 y <- unlist(gdd.eco[1,-(1:2)])
 x <- as.numeric(colnames(gdd.eco)[-(1:2)])
 mdl <- lm(y~x,subset=y>0)
@@ -104,7 +104,7 @@ text(2050,FV*1.1,sprintf("Final value = %0.2f",FV),adj=c(1,1))
 
 If we set an *arbitrary collapse* value of $GDD[collapse]=2000$, the relative severity for this location is:
 
-```{r setup, include=TRUE}
+```{r relative severity, include=TRUE}
 
 CT <- 2000
 
@@ -114,7 +114,7 @@ CT <- 2000
 
 We can now repeat this for all locations, and calculate the relative severity for all units:
 
-```{r setup, include=TRUE}
+```{r extent and severity, include=TRUE}
 x <- as.numeric(colnames(gdd.eco)[-(1:2)])
 CT <- 2000
 eco.RS <- data.frame()
@@ -133,7 +133,7 @@ In this case, relative severity is > 30% for all localities (>80% extent), thus 
 
 We could use reference data to estimate a more appropriate collapse threshold. For example *Hakea microcarpa* was mentioned as a species that could invade Feldmark under rising temperatures. We use occurrence localities from the Atlas of Living Australia as  of an external potentially invasive species)
 
-```{r setup, include=TRUE}
+```{r Hakea microcarpa, include=TRUE}
 arch <- sprintf("%s/Hakea-microcarpa-locs.csv",MAPS)
 Hm.xy <- unique(read.table(arch,head=F))
 coordinates(Hm.xy) <- 1:2
@@ -143,14 +143,14 @@ Hm.ll <- spTransform(Hm.xy,"+init=epsg:4326")
 
 The occurrence records are very widespread, in Tasmania the distribution of *Hakea microcarpa* has little overlap with the distribution of the ecosystem...
 
-```{r setup, include=TRUE}
+```{r distribution all, include=TRUE}
 plot(Hm.ll,col=2,cex=.5)
 points(eco.centroids,cex=.5)
 ```
 
 But in the mainland the Feldmark has a very restricted distribution (2 cells from the NARCLiM domain), and it overlaps with records of *H. microcarpa*:
 
-```{r setup, include=TRUE}
+```{r distribution mainland, include=TRUE}
 plot(Hm.ll,col=2,cex=.5,ylim=c(-37,-36),xlim=c(148,149))
 points(unique(GDD[,2:1]),pch=22,cex=8)
 points(eco.centroids,cex=.5)
@@ -158,7 +158,7 @@ points(eco.centroids,cex=.5)
 
 We can calculate the expected GDD values for the locations with *Hakea microcarpa*:
 
-```{r setup, include=TRUE}
+```{r GDD Hakea, include=TRUE}
 if (!exists("gdd.col")) {
    xys2 <- coordinates(Hm.ll)
    gdd.col <- data.frame(xys2)
@@ -184,7 +184,7 @@ head(gdd.col)
 
 But there is considerable overlap and no clear threshold to separate the ecosystem from the areas with presence of *H. microcarpa*
 
-```{r setup, include=TRUE}
+```{r GDD Hakea vs Feldmark, include=TRUE}
 x <- as.numeric(colnames(gdd.col)[-(1:2)])
 y <- as.numeric(colnames(gdd.eco)[-(1:2)])
 
