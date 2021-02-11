@@ -13,6 +13,7 @@ require(chron)
 require(raster)
 require(sf)
 require(abind)
+require(units)
 
 ## set up data directories and other variables
 
