@@ -1,0 +1,124 @@
+---
+title: "Preliminary analysis of growing degree days (GDD) for Mainland Feldmark ecosystem"
+author: "Ferrer-Paris, J.R."
+date: February 10, 2021
+output: pdf_document
+---
+```{r setup, include=FALSE}
+
+## load libraries
+require(ncdf4)
+require(chron)
+require(raster)
+require(sf)
+require(abind)
+
+## set up data directories and other variables
+
+SCRIPTDIR <- sprintf("/home/%s/proyectos/UNSW/australian-alps-climate-change",system("whoami",intern=T))
+MAPS <- sprintf("/srv/scratch/%s/gisdata/aust-alps",system("whoami",intern=T))
+PERIOD <- "1990-2009"
+MODEL <- "CCCMA3.1"
+PRM <- "R2"
+
+```
+
+Target ecosystem is Feldmark, we use the shapefile with the final map:
+
+```{r setup, include=FALSE}
+arch <- sprintf("%s/all states feldmark/final outputs/all_states_feldmark_min.shp",MAPS)
+eco.xy <- st_read(arch)
+```
+
+Climate data is in coarse cells (10 km²), while ecosystems are very small (<40 ha)
+
+```{r setup, include=FALSE}
+eco.area <- st_area(eco.xy)
+units(eco.area) <- with(ud_units, ha)
+##units(eco.area) <- with(ud_units, km^2)
+hist(eco.area)
+```
+
+Thus we can simplify the analysis using the centroids of the ecosystem polygons, and use the areas as weights for the final summary of results.
+
+
+
+```{r setup, include=FALSE}
+eco.centroids <- st_coordinates(st_transform(st_centroid(eco.xy),crs = "EPSG:4326"))
+
+```
+
+ Collapse state (occurrence of an external potentially invasive species)
+
+```{r setup, include=FALSE}
+
+arch <- sprintf("%s/Hakea-microcarpa-locs.csv",MAPS)
+Hm.xy <- unique(read.table(arch,head=F))
+coordinates(Hm.xy) <- 1:2
+proj4string(Hm.xy) <-  '+proj=utm +zone=55 +south +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs '
+Hm.ll <- spTransform(Hm.xy,"+init=epsg:4326")
+xys2 <- coordinates(Hm.ll)
+
+plot(Hm.ll,col=2)
+points(xys1)
+
+
+```
+
+```{r setup, include=FALSE}
+
+gdd.eco <- data.frame(xys1)
+
+gdd.col <- data.frame(xys2)
+## load GDD data for one model and scenario
+for (PERIOD in c("1990-2009","2020-2039","2060-2079")) {
+   load(sprintf("%s/Rdata/%s-%s-%s.rda",SCRIPTDIR,PERIOD,MODEL,PRM))
+
+   ## aggregate GDD values per cell
+   for (yy in unique(GDD$year)) {
+      ss <- subset(GDD, year %in% yy & n>360 & lon>(min(xys[,1])-1) & lon<(max(xys[,1])+1) & lat>(min(xys[,2])-1) & lat<(max(xys[,2])+1))
+      if(nrow(ss)>0) {
+
+      dst1 <- pointDistance(ss[,2:1],xys1,lonlat=T,allpairs=T)
+      dst2 <- pointDistance(ss[,2:1],xys2,lonlat=T,allpairs=T)
+
+      #Inverse distance weighting
+      dst1[dst1>50000] <- NA
+      w <- 1/dst1^3
+      gdd.eco[yy] <- apply(w,2,function(x) sum(x*ss$GDD,na.rm=T)/sum(x,na.rm=T))
+
+      dst2[dst2>50000] <- NA
+      w <- 1/dst2^3
+      gdd.col[yy] <- apply(w,2,function(x) sum(x*ss$GDD,na.rm=T)/sum(x,na.rm=T))
+
+      }
+   }   
+}
+
+```
+
+```{r setup, include=FALSE}
+
+head(gdd.eco)
+
+y <- unlist(gdd.eco[1,-(1:2)])
+x <- as.numeric(colnames(gdd.eco)[-(1:2)])
+mdl <- lm(y~x,subset=y>0)
+
+boxplot(gdd.col[,-(1:2)],at=x,col=grey(.6),border=grey(.4))
+matpoints(x,t(gdd.eco[,-(1:2)]),pch=19,col="darkgreen",cex=.5)
+abline(h=2000,col=2,lwd=3,lty=3)
+abline(mdl)
+
+```
+
+```{r setup, include=FALSE}
+
+initial.value <- predict(mdl,data.frame(x=2000))
+final.value <- predict(mdl,data.frame(x=2050))
+collapse.threshold <- 2000
+
+(final.value-collapse.threshold)/(initial.value-collapse.threshold)
+
+
+```
