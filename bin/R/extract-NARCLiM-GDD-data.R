@@ -9,7 +9,10 @@ require(abind)
 
 ## time variable in nc files is given as hours since 1949-12-01 00:00:00
 ## we use this vector of dates in order to break the time series into years:
-ini.date <- chron(julian(x=6, d=1, y=c(1989:2080),origin.=c(month = 12, day = 1, year =1949)),origin.=c(month = 12, day = 1, year =1949))
+orig.date <- c(month = 12, day = 1, year =1949)
+ini.date <- chron(
+   julian(x=6, d=1, y=c(1989:2080), origin.=orig.date),
+   origin.=orig.date)
 
 ## Base temperature in Kelvin. Consider 0 or 6°C
 temp.base <- 273.15 + 6 # if 6°C is adequate...
@@ -20,12 +23,12 @@ for (l in dir(Sys.getenv("TARGET1"),full.names=T,pattern="tasmax")) {
 
    tst <- nc_open(l)
    if (!exists("tmax")) {
-      d <- chron(ncvar_get( tst, "time")/24, origin.=c(month = 12, day = 1, year =1949))
+      d <- chron(ncvar_get( tst, "time")/24, origin.=orig.date)
       tmax <- ncvar_get( tst, "tasmax")
       x <- ncvar_get( tst, "lon")
       y <- ncvar_get( tst, "lat")
    } else {
-      d <- c(d,chron(ncvar_get( tst, "time")/24, origin.=c(month = 12, day = 1, year =1949)))
+      d <- c(d,chron(ncvar_get( tst, "time")/24, origin.=orig.date))
       tmax <- abind(tmax,ncvar_get( tst, "tasmax"))
    }
    nc_close( tst)
@@ -50,9 +53,10 @@ for(i in 1:nrow(y)) {
       DHC <- (tmax[i,j,]+tmin[i,j,])/2 - temp.base
       # Year summary of GDD
       GDD <- rbind(GDD,cbind(lat=y[i,j],lon=x[i,j],
-         aggregate(data.frame(n=DHC^0,GDD=ifelse(DHC>0,DHC,0)),list(year=cut(d,ini.date,label=1989:2079)),sum)))
+         aggregate(data.frame(n=DHC^0,GDD=ifelse(DHC>0,DHC,0)),
+         list(year=cut(d,ini.date, label=1989:2079)),sum,na.rm=T)))
       }
-   save(file=sprintf("%s/Rdata/%s-%s-%s.rda",Sys.getenv("SCRIPTDIR"),Sys.getenv("PERIOD"),Sys.getenv("MODEL"),Sys.getenv("PRM")),i,j,GDD)
+   save(file=sprintf("%s/Rdata/%s-%s-%s.rda",Sys.getenv("SCRIPTDIR"), Sys.getenv("PERIOD"), Sys.getenv("MODEL"), Sys.getenv("PRM")),i,j,GDD)
 }
 gc()
 
