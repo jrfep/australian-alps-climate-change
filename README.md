@@ -89,7 +89,7 @@ Explore variables using an interactive `pbs` job:
 
 ```sh
 ssh $zID@katana.restech.unsw.edu.au
-source $HOME/proyectos/UNSW/fire-analysis-aust-alps/load.env
+source $HOME/proyectos/UNSW/australian-alps-climate-change/load.env
 cd $WORKDIR
 qsub -I -l select=1:ncpus=1:mem=32gb,walltime=4:00:00
 #" if we need a graphical session "
