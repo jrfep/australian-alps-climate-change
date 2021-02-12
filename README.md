@@ -111,6 +111,23 @@ qsub -J 5-36 $SCRIPTDIR/bin/pbs/calculate-GDD.pbs
 qstat -tu $(whoami)
 ```
 
+View results in Katana on demand:
+
+```sh
+ssh $zID@katana.restech.unsw.edu.au
+source $HOME/proyectos/UNSW/australian-alps-climate-change/load.env
+cd $WORKDIR
+
+qsub -I -l select=1:ncpus=1:mem=16gb,walltime=1:00:00
+
+source $HOME/proyectos/UNSW/australian-alps-climate-change/load.env
+cd $WORKDIR
+module add R/4.0.2
+module add texlive
+
+Rscript -e "rmarkdown::render('~/proyectos/UNSW/australian-alps-climate-change/doc/GDD-Feldmark-Hakea.Rmd')"
+```
+
 #### References
 Evans JP, Ji F, Lee C, Smith P, Argüeso D and Fita L (2014) Design of a regional climate modelling projection ensemble experiment – NARCliM . Geosci. Model Dev., 7, 621–629. https://doi.org/10.5194/gmd-7-621-2014
 
