@@ -128,7 +128,7 @@ module add texlive
 R --vanilla
 rmarkdown::render('~/proyectos/UNSW/australian-alps-climate-change/doc/GDD-Feldmark-Hakea.Rmd')
 rmarkdown::render('~/proyectos/UNSW/australian-alps-climate-change/doc/GDD-Feldmark-Hakea.Rmd',output_format='html_document')
-rmarkdown::render('~/proyectos/UNSW/australian-alps-climate-change/doc/GDD-Feldmark-Hakea.Rmd',output_format='word_document')
+##rmarkdown::render('~/proyectos/UNSW/australian-alps-climate-change/doc/GDD-Feldmark-Hakea.Rmd',output_format='word_document')
 rmarkdown::render('~/proyectos/UNSW/australian-alps-climate-change/doc/GDD-Feldmark-Hakea.Rmd',output_format='pdf_document')
 
 ## Rscript -e "rmarkdown::render('~/proyectos/UNSW/australian-alps-climate-change/doc/GDD-Feldmark-Hakea.Rmd',output_format='html_document')"
