@@ -78,13 +78,13 @@ map1 %>% layout(
 
 Here we load GDD data for one model and scenario.
 
-```{r GDD-points, include=TRUE}
+```{r load-NARCLiM-data, include=TRUE}
 load(sprintf("%s/%s-%s-%s.rda",RDATA,PERIOD,MODEL,PRM))
 ```
 
 In order to calculate the GDD value for each ecosystem location, we use inverse distance weighted interpolation to aggregate values from the neighboring NARCLiM data cells. This is an example for the GDD values for year 1990 for one ecosystem location point:
 
-```{r GDD-points, include=TRUE}
+```{r subset-GDD, include=TRUE}
 
 ss <- subset(GDD, year %in% 1990 & n>360 & lon>(min(eco.centroids[,1])-1) & lon<(max(eco.centroids[,1])+1) & lat>(min(eco.centroids[,2])-1) & lat<(max(eco.centroids[,2])+1))
 
@@ -96,7 +96,7 @@ dst1 <- pointDistance(ss[,2:1],s2,lonlat=T,allpairs=T)
 
 Here we select the nearest points and average them using the inverse distance as weights:
 
-```{r GDD-points, include=TRUE}
+```{r example-GDD-idw, include=TRUE}
 ## distance to nearest cells
 (d <- dst1[dst1[,1]<15000,1])
 ## GDD values
@@ -108,7 +108,7 @@ weighted.mean(x,1/d^4.5)
 
 We write a function and verify:
 
-```{r GDD-points, include=TRUE}
+```{r GDD-idw, include=TRUE}
 idw <- function(x,d,p=1) {
    q <- d<15000
    w <- 1/(d[q])^p
@@ -233,7 +233,7 @@ Hm.ll <- spTransform(Hm.xy,"+init=epsg:4326")
 
 The occurrence records are very widespread, in Tasmania the distribution of *Hakea microcarpa* has little overlap with the distribution of the ecosystem, but in the mainland the Feldmark has a very restricted distribution (2 cells from the NARCLiM domain), and it overlaps with records of *H. microcarpa*:
 
-```{r feldmark-plotly-map}
+```{r feldmark-hakea-plotly-map}
 
 map1 %>% add_markers(data=data.frame(coordinates(Hm.ll)),x=~V1,y=~V2,color = I("green"),size=10, name="H. microcarpa")  %>% layout(
    mapbox = list(
