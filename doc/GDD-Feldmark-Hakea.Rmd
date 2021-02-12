@@ -3,10 +3,12 @@ title: "Preliminary analysis of growing degree days (GDD) for Mainland Feldmark 
 author: "Ferrer-Paris, J.R."
 date: "February 10, 2021"
 output:
+  html_document: default
   pdf_document: default
   word_document: default
 editor_options:
   chunk_output_type: console
+always_allow_html: true
 ---
 
 ```{r setup, include=FALSE}
@@ -58,11 +60,11 @@ eco.centroids <- st_coordinates(st_transform(st_centroid(eco.xy),crs = "EPSG:432
 
 ```
 
-Interactive maps with `plotly`:
+We can explore the locations with an interactive map (only in HTML document):
 
 ```{r feldmark-plotly-map}
 
-map1 <- plot_mapbox(data.frame(eco.centroids)) %>% add_markers(x=~X,y=~Y,color = I("maroon"),size=10)
+map1 <- plot_mapbox(data.frame(eco.centroids)) %>% add_markers(x=~X,y=~Y,color = I("maroon"),size=10, name="Feldmark ecosystem")
 
 map1 %>% layout(
    mapbox = list(
@@ -72,7 +74,72 @@ map1 %>% layout(
 )
 ```
 
-Load GDD data for one model and scenario and aggregate GDD values per cell using inverse distance weighted interpolation:
+# Interpolate GDD values from NARCliM v1.0 data
+
+Here we load GDD data for one model and scenario.
+
+```{r GDD-points, include=TRUE}
+load(sprintf("%s/%s-%s-%s.rda",RDATA,PERIOD,MODEL,PRM))
+```
+
+In order to calculate the GDD value for each ecosystem location, we use inverse distance weighted interpolation to aggregate values from the neighboring NARCLiM data cells. This is an example for the GDD values for year 1990 for one ecosystem location point:
+
+```{r GDD-points, include=TRUE}
+
+ss <- subset(GDD, year %in% 1990 & n>360 & lon>(min(eco.centroids[,1])-1) & lon<(max(eco.centroids[,1])+1) & lat>(min(eco.centroids[,2])-1) & lat<(max(eco.centroids[,2])+1))
+
+s2 <- eco.centroids[1:20,]
+
+dst1 <- pointDistance(ss[,2:1],s2,lonlat=T,allpairs=T)
+
+```
+
+Here we select the nearest points and average them using the inverse distance as weights:
+
+```{r GDD-points, include=TRUE}
+## distance to nearest cells
+(d <- dst1[dst1[,1]<15000,1])
+## GDD values
+(x <- ss$GDD[dst1[,1]<15000])
+#Inverse distance weighting
+weighted.mean(x,1/d^4.5)
+
+```
+
+We write a function and verify:
+
+```{r GDD-points, include=TRUE}
+idw <- function(x,d,p=1) {
+   q <- d<15000
+   w <- 1/(d[q])^p
+   g <- x[q] * w
+   ##y <- sum(g,na.rm=T)/sum(w,na.rm=T)
+   y <- weighted.mean(x[q],w,na.rm=T)
+   return(y)
+}
+
+idw(x=ss$GDD,d=dst1[,1],p=4.5)
+
+```
+
+And proceed with the calculation for all ecosystem locations:
+
+
+```{r GDD-points, include=TRUE}
+
+tst <- apply(dst1,2,function(d) idw(x=ss$GDD,d,p=4.5))
+
+slc <- c(1,5,11,18)
+plot(ss[,2:1],pch=3,cex=1,ylim=c(-36.65,-36.25),xlim=c(148.15,148.45),col="slateblue4")
+text(ss$lon,ss$lat,round(ss$GDD,1),cex=.75,col="blue",adj=-.1)
+points(s2,cex=.85,col="pink")
+text(s2[slc,1],s2[slc,2],round(tst[slc],2),cex=.65,col=2,adj=-.1)
+legend("topright",c("NARCLiM cell centers","Ecosystem polygon centroids"),pch=c(3,1),col=c("slateblue4","pink"))
+
+```
+
+Now we run this calculation for all locations and years
+ aggregate GDD values per cell using inverse distance weighted interpolation:
 
 
 ```{r calculate-GDD, include=TRUE}
@@ -84,15 +151,10 @@ if (!exists("gdd.eco")) {
 
       for (yy in unique(GDD$year)) {
          ss <- subset(GDD, year %in% yy & n>360 & lon>(min(eco.centroids[,1])-1) & lon<(max(eco.centroids[,1])+1) & lat>(min(eco.centroids[,2])-1) & lat<(max(eco.centroids[,2])+1))
+
          if(nrow(ss)>0) {
-
-         dst1 <- pointDistance(ss[,2:1],eco.centroids,lonlat=T,allpairs=T)
-
-         #Inverse distance weighting
-         dst1[dst1>50000] <- NA
-         w <- 1/dst1^3
-         gdd.eco[yy] <- apply(w,2,function(x) sum(x*ss$GDD,na.rm=T)/sum(x,na.rm=T))
-
+            dst1 <- pointDistance(ss[,2:1],eco.centroids,lonlat=T,allpairs=T)
+            gdd.eco[yy] <- apply(dst1,2,function(d) idw(x=ss$GDD,d,p=4.5))
          }
       }   
    }   
@@ -100,10 +162,12 @@ if (!exists("gdd.eco")) {
 
 valid.eco <- apply(!is.na(gdd.eco[,-(1:2)]),1,sum)>10
 gdd.eco <- gdd.eco[valid.eco,]
-head(gdd.eco)
+head(gdd.eco[,1:7])
 
 ```
 
+
+# Trend in GDD according to climate models
 
 For one location, we can calculate the trend in annual GDD for the whole time period, and interpolate the expected values for years 2000 and 2050:
 
@@ -124,7 +188,9 @@ text(2000,IV*.9,sprintf("Initial value = %0.2f",IV),adj=c(0,1))
 text(2050,FV*1.1,sprintf("Final value = %0.2f",FV),adj=c(1,1))
 ```
 
-If we set an *arbitrary collapse* value of $GDD[collapse]=2000$, the relative severity for this location is:
+# Calculate relative severity and extent
+
+If we set an *arbitrary* collapse threshold value of $CT=2000$, the relative severity for this location is:
 
 ```{r relative-severity, include=TRUE}
 
@@ -153,6 +219,8 @@ summary(eco.RS$RS)
 In this case, relative severity is > 50% for all localities (>80% extent), thus the resulting category would be EN.
 
 
+# How to determine a meaningful collapse threshold?
+
 We could use reference data to estimate a more appropriate collapse threshold. For example *Hakea microcarpa* was mentioned as a species that could invade Feldmark under rising temperatures. We use occurrence localities from the Atlas of Living Australia as  of an external potentially invasive species)
 
 ```{r Hakea-microcarpa, include=TRUE}
@@ -163,16 +231,24 @@ proj4string(Hm.xy) <-  '+proj=utm +zone=55 +south +ellps=GRS80 +towgs84=0,0,0,0,
 Hm.ll <- spTransform(Hm.xy,"+init=epsg:4326")
 ```
 
-The occurrence records are very widespread, in Tasmania the distribution of *Hakea microcarpa* has little overlap with the distribution of the ecosystem...
+The occurrence records are very widespread, in Tasmania the distribution of *Hakea microcarpa* has little overlap with the distribution of the ecosystem, but in the mainland the Feldmark has a very restricted distribution (2 cells from the NARCLiM domain), and it overlaps with records of *H. microcarpa*:
 
-```{r distribution-all, include=TRUE}
-plot(Hm.ll,col=2,cex=.5)
-points(eco.centroids,cex=.5)
+```{r feldmark-plotly-map}
+
+map1 %>% add_markers(data=data.frame(coordinates(Hm.ll)),x=~V1,y=~V2,color = I("green"),size=10, name="H. microcarpa")  %>% layout(
+   mapbox = list(
+      zoom = 8,
+      center = list(lat = -36.5, lon = 148.5)
+   )
+)
 ```
 
-But in the mainland the Feldmark has a very restricted distribution (2 cells from the NARCLiM domain), and it overlaps with records of *H. microcarpa*:
 
-```{r distribution-mainland, include=TRUE}
+
+```{r distribution-all, include=FALSE,echo=FALSE}
+# alternative static map:
+plot(Hm.ll,col=2,cex=.5)
+points(eco.centroids,cex=.5)
 plot(Hm.ll,col=2,cex=.5,ylim=c(-37,-36),xlim=c(148,149))
 points(unique(GDD[,2:1]),pch=22,cex=8)
 points(eco.centroids,cex=.5)
@@ -192,15 +268,15 @@ if (!exists("gdd.col")) {
          ss <- subset(GDD, year %in% yy & n>360 & lon>(min(eco.centroids[,1])-1) & lon<(max(eco.centroids[,1])+1) & lat>(min(eco.centroids[,2])-1) & lat<(max(eco.centroids[,2])+1))
          if(nrow(ss)>0) {
             dst2 <- pointDistance(ss[,2:1],xys2,lonlat=T,allpairs=T)
-            #Inverse distance weighting
-            dst2[dst2>50000] <- NA
-            w <- 1/dst2^3
-            gdd.col[yy] <- apply(w,2,function(x) sum(x*ss$GDD,na.rm=T)/sum(x,na.rm=T))
+            gdd.col[yy] <- apply(dst2,2,function(d) idw(x=ss$GDD,d,p=4.5))
          }
       }   
    }   
 }
-head(gdd.col)
+valid.col <- apply(!is.na(gdd.col[,-(1:2)]),1,sum)>10
+gdd.col <- gdd.col[valid.col,]
+
+head(gdd.col[,1:7])
 
 ```
 
@@ -210,7 +286,7 @@ But there is considerable overlap and no clear threshold to separate the ecosyst
 x <- as.numeric(colnames(gdd.col)[-(1:2)])
 y <- as.numeric(colnames(gdd.eco)[-(1:2)])
 
-boxplot(gdd.col[,-(1:2)],at=x,col=grey(.6),border=grey(.4))
-matpoints(y,t(gdd.eco[,-(1:2)]),pch=1,col="darkgreen",cex=1)
+boxplot(gdd.col[,-(1:2)],at=x,col=grey(.8),border=grey(.6))
+matpoints(y,t(gdd.eco[,-(1:2)]),pch=1,col="red",cex=1)
 
 ```

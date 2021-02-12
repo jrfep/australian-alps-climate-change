@@ -125,7 +125,13 @@ cd $WORKDIR
 module add R/4.0.2
 module add texlive
 
-Rscript -e "rmarkdown::render('~/proyectos/UNSW/australian-alps-climate-change/doc/GDD-Feldmark-Hakea.Rmd')"
+R --vanilla
+rmarkdown::render('~/proyectos/UNSW/australian-alps-climate-change/doc/GDD-Feldmark-Hakea.Rmd')
+rmarkdown::render('~/proyectos/UNSW/australian-alps-climate-change/doc/GDD-Feldmark-Hakea.Rmd')
+
+## Rscript -e "rmarkdown::render('~/proyectos/UNSW/australian-alps-climate-change/doc/GDD-Feldmark-Hakea.Rmd',output_format='html_document')"
+
+
 ```
 
 #### References
