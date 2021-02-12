@@ -64,7 +64,9 @@ We can explore the locations with an interactive map (only in HTML document):
 
 ```{r feldmark-plotly-map}
 
-map1 <- plot_mapbox(data.frame(eco.centroids)) %>% add_markers(x=~X,y=~Y,color = I("maroon"),size=10, name="Feldmark ecosystem")
+map1 <- plot_mapbox(data.frame(eco.centroids)) %>%
+   add_markers(x=~X, y=~Y, color = I("maroon"), size=10,
+      name="Feldmark ecosystem")
 
 map1 %>% layout(
    mapbox = list(
@@ -86,7 +88,9 @@ In order to calculate the GDD value for each ecosystem location, we use inverse 
 
 ```{r subset-GDD, include=TRUE}
 
-ss <- subset(GDD, year %in% 1990 & n>360 & lon>(min(eco.centroids[,1])-1) & lon<(max(eco.centroids[,1])+1) & lat>(min(eco.centroids[,2])-1) & lat<(max(eco.centroids[,2])+1))
+ss <- subset(GDD, year %in% 1990 & n>360 &
+   lon>(min(eco.centroids[,1])-1) & lon<(max(eco.centroids[,1])+1) &
+      lat>(min(eco.centroids[,2])-1) & lat<(max(eco.centroids[,2])+1))
 
 s2 <- eco.centroids[1:20,]
 
@@ -134,7 +138,8 @@ plot(ss[,2:1],pch=3,cex=1,ylim=c(-36.65,-36.25),xlim=c(148.15,148.45),col="slate
 text(ss$lon,ss$lat,round(ss$GDD,1),cex=.75,col="blue",adj=-.1)
 points(s2,cex=.85,col="pink")
 text(s2[slc,1],s2[slc,2],round(tst[slc],2),cex=.65,col=2,adj=-.1)
-legend("topright",c("NARCLiM cell centers","Ecosystem polygon centroids"),pch=c(3,1),col=c("slateblue4","pink"))
+legend("topright", c("NARCLiM cell centers", "Ecosystem polygon centroids"),
+   pch=c(3,1), col=c("slateblue4","pink"),bg="white",cex=.8)
 
 ```
 
@@ -150,7 +155,9 @@ if (!exists("gdd.eco")) {
       load(sprintf("%s/%s-%s-%s.rda",RDATA,PERIOD,MODEL,PRM))
 
       for (yy in unique(GDD$year)) {
-         ss <- subset(GDD, year %in% yy & n>360 & lon>(min(eco.centroids[,1])-1) & lon<(max(eco.centroids[,1])+1) & lat>(min(eco.centroids[,2])-1) & lat<(max(eco.centroids[,2])+1))
+         ss <- subset(GDD, year %in% yy & n>360 &
+            lon>(min(eco.centroids[,1])-1) & lon<(max(eco.centroids[,1])+1) &
+               lat>(min(eco.centroids[,2])-1) & lat<(max(eco.centroids[,2])+1))
 
          if(nrow(ss)>0) {
             dst1 <- pointDistance(ss[,2:1],eco.centroids,lonlat=T,allpairs=T)
@@ -227,20 +234,23 @@ We could use reference data to estimate a more appropriate collapse threshold. F
 arch <- sprintf("%s/Hakea-microcarpa-locs.csv",MAPS)
 Hm.xy <- unique(read.table(arch,head=F))
 coordinates(Hm.xy) <- 1:2
-proj4string(Hm.xy) <-  '+proj=utm +zone=55 +south +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs '
+proj4string(Hm.xy) <-
+   '+proj=utm +zone=55 +south +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs'
 Hm.ll <- spTransform(Hm.xy,"+init=epsg:4326")
 ```
 
-The occurrence records are very widespread, in Tasmania the distribution of *Hakea microcarpa* has little overlap with the distribution of the ecosystem, but in the mainland the Feldmark has a very restricted distribution (2 cells from the NARCLiM domain), and it overlaps with records of *H. microcarpa*:
+The occurrence records are very widespread, in Tasmania the distribution of *Hakea microcarpa* has little overlap with the distribution of the ecosystem, but in the mainland the Feldmark has a very restricted distribution (2 cells from the NARCLiM domain), and it overlaps with records of *H. microcarpa*. We can explore the map interactively:
 
 ```{r feldmark-hakea-plotly-map}
 
-map1 %>% add_markers(data=data.frame(coordinates(Hm.ll)),x=~V1,y=~V2,color = I("green"),size=10, name="H. microcarpa")  %>% layout(
-   mapbox = list(
-      zoom = 8,
-      center = list(lat = -36.5, lon = 148.5)
+map1 %>% add_markers(data=data.frame(coordinates(Hm.ll)), x=~V1, y=~V2,
+   color = I("green"), size=10, name="H. microcarpa") %>%
+   layout(
+      mapbox = list(
+         zoom = 8,
+         center = list(lat = -36.5, lon = 148.5)
+      )
    )
-)
 ```
 
 
@@ -265,7 +275,9 @@ if (!exists("gdd.col")) {
       load(sprintf("%s/%s-%s-%s.rda",RDATA,PERIOD,MODEL,PRM))
 
       for (yy in unique(GDD$year)) {
-         ss <- subset(GDD, year %in% yy & n>360 & lon>(min(eco.centroids[,1])-1) & lon<(max(eco.centroids[,1])+1) & lat>(min(eco.centroids[,2])-1) & lat<(max(eco.centroids[,2])+1))
+         ss <- subset(GDD, year %in% yy & n>360 &
+            lon>(min(eco.centroids[,1])-1) & lon<(max(eco.centroids[,1])+1) &
+               lat>(min(eco.centroids[,2])-1) & lat<(max(eco.centroids[,2])+1))
          if(nrow(ss)>0) {
             dst2 <- pointDistance(ss[,2:1],xys2,lonlat=T,allpairs=T)
             gdd.col[yy] <- apply(dst2,2,function(d) idw(x=ss$GDD,d,p=4.5))
