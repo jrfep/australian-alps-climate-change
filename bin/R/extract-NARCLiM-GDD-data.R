@@ -17,6 +17,8 @@ ini.date <- chron(
 ## Base temperature in Kelvin. Consider 0 or 6°C
 temp.base <- 273.15 + 6 # if 6°C is adequate...
 
+temp.base <- 273.15  # using 0°C as recommended by Susanna and Brodie (via Chloe)
+
 ## Read files from target directory and get time series of time and measurements
 
 for (l in dir(Sys.getenv("TARGET1"),full.names=T,pattern="tasmax")) {

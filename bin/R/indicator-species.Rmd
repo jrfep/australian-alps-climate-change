@@ -1,0 +1,47 @@
+# Selecting species
+
+Two species invade feldmark in Kosciuszko National Park (within a 40-50y timeframe): _Poa caespitosa_ and _Celmisia longifolia_.
+
+These invasions are dependent upon sufficient soil accumulation in feldmark areas. We assume that soil accumulation and the right temperatures for growth are intertwined processes.
+
+For Tasmania, TBC: _Hakea microcarpa_ and possibly _Baeckea gunniana_ as well.
+
+## Data download from ALA
+
+We can download the species data from ALA using the `spocc` functions:
+
+```r
+##R --vanilla
+require(spocc)
+require(dplyr)
+require(mapr)
+require(raster)
+
+e1 <- extent(140,156,-44,-27)
+
+df <- occ(query = c('Poa caespitosa','Celmisia longifolia','Hakea microcarpa','Baeckea gunniana'), from = c('ala'),limit=3000)
+
+
+
+reprojectData <- function(w) {
+   w %>% filter(!is.na(longitude) & abs(longitude)<180 & abs(latitude)<180) -> x
+   coordinates(x) <- c("longitude","latitude")
+   proj4string(x) <- CRS("+init=epsg:4326")
+   y <- spTransform(crop(x,e1),"+proj=utm +zone=55 +south +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs")
+   return(y)
+}
+
+
+Pc.xy <- reprojectData(df$ala$data$Poa_caespitosa)
+Hm.xy <- reprojectData(df$ala$data$Hakea_microcarpa)
+Bg.xy <- reprojectData(df$ala$data$Baeckea_gunniana)
+Cl.xy <- reprojectData(df$ala$data$Celmisia_longifolia)
+
+save(file="Indicator-species.rda",Pc.xy,Hm.xy,Bg.xy,Cl.xy)
+#write.table(file="Hakea-microcarpa-locs.csv",unique(coordinates(dts.xy)),sep=" ", row.names = FALSE, col.names = FALSE)
+```
+
+```sh
+#scp Hakea-microcarpa-locs.csv $zID@kdm.restech.unsw.edu.au:/srv/scratch/$zID/gisdata/aust-alps/
+
+```
