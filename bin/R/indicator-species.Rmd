@@ -37,11 +37,16 @@ Hm.xy <- reprojectData(df$ala$data$Hakea_microcarpa)
 Bg.xy <- reprojectData(df$ala$data$Baeckea_gunniana)
 Cl.xy <- reprojectData(df$ala$data$Celmisia_longifolia)
 
+plot(Hm.xy)
+points(Bg.xy,col=2)
+points(Pc.xy,col=3)
+points(Cl.xy,col=4)
+
 save(file="Indicator-species.rda",Pc.xy,Hm.xy,Bg.xy,Cl.xy)
 #write.table(file="Hakea-microcarpa-locs.csv",unique(coordinates(dts.xy)),sep=" ", row.names = FALSE, col.names = FALSE)
 ```
 
 ```sh
-#scp Hakea-microcarpa-locs.csv $zID@kdm.restech.unsw.edu.au:/srv/scratch/$zID/gisdata/aust-alps/
+scp Indicator-species.rda $zID@kdm.restech.unsw.edu.au:/srv/scratch/$zID/gisdata/aust-alps/
 
 ```
