@@ -1,5 +1,8 @@
 #!R --vanilla
 
+init.time <- Sys.time()
+cat(sprintf("Inicio %s\n",init.time))
+
 ## load libraries
 require(ncdf4)
 require(chron)
@@ -68,3 +71,7 @@ ss <- subset(GDD,n>360)
 dts <- with(ss,aggregate(GDD,list(lon,lat),sum))
 
 save(file=sprintf("%s/%s-%s-%s.rda",Sys.getenv("RDATA"),Sys.getenv("PERIOD"),Sys.getenv("MODEL"),Sys.getenv("PRM")),dts,GDD)
+
+end.time <- Sys.time()
+cat(sprintf("Fin %s\n",end.time))
+print(end.time-init.time)

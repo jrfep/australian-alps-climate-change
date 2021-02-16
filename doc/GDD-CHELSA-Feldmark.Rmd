@@ -1,0 +1,344 @@
+---
+title: "Preliminary analysis of growing degree days (GDD) for Feldmark ecosystem"
+author: "Ferrer-Paris, J.R."
+date: "February 10, 2021"
+output:
+  html_document: default
+  pdf_document: default
+  word_document: default
+editor_options:
+  chunk_output_type: console
+always_allow_html: true
+---
+
+```{r setup, include=FALSE}
+
+## load libraries
+require(ncdf4)
+require(chron)
+require(raster)
+require(sf)
+require(abind)
+require(units)
+require(plotly)
+
+## set up data directories and other variables
+
+SCRIPTDIR <- sprintf("/home/%s/proyectos/UNSW/australian-alps-climate-change",system("whoami",intern=T))
+MAPS <- sprintf("/srv/scratch/%s/gisdata/aust-alps",system("whoami",intern=T))
+Sys.setenv('MAPBOX_TOKEN' = readLines("~/.mapbox.token"))
+```
+
+# Target ecosystem
+
+Target ecosystem is Feldmark, we use the shapefile with the final map:
+
+```{r feldmark-shape, include=TRUE}
+arch <- sprintf("%s/all states feldmark/final outputs/all_states_feldmark_min.shp",MAPS)
+eco.xy <- st_transform(st_read(arch),crs = "+proj=utm +zone=55 +south +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs ")
+```
+
+
+
+
+Climate data is in coarse cells (10 km²), while ecosystems are very small (<40 ha)
+
+```{r feldmark-area, include=TRUE}
+eco.area <- st_area(eco.xy)
+units(eco.area) <- with(ud_units, ha)
+##units(eco.area) <- with(ud_units, km^2)
+hist(eco.area)
+```
+
+Thus we can simplify the analysis using the centroids of the ecosystem polygons. We could use the areas as weights for the final summary of results if needed.
+
+
+
+```{r feldmark-centroids, include=TRUE}
+eco.centroids <- st_coordinates(st_centroid(eco.xy))
+eco.polygons <- st_geometry(eco.xy)
+
+```
+
+We can explore the locations with an interactive map (only in HTML document):
+
+```{r feldmark-plotly-map}
+
+map1 <- plot_mapbox(data.frame(eco.centroids)) %>%
+   add_markers(x=~X, y=~Y, color = I("maroon"), size=10,
+      name="Feldmark ecosystem")
+
+map1 %>% layout(
+   mapbox = list(
+      zoom = 8,
+      center = list(lat = -36.5, lon = 148.5)
+   )
+)
+```
+
+# Interpolate GDD values from CHELSA v1.2 timeseries
+
+Here we load GDD data for one model and scenario.
+
+```{r load-CHELSA-data, include=TRUE}
+
+load(sprintf("%s/Indicator-species.rda",MAPS))
+
+tas.GDD <- stack(dir(sprintf("%s/CHELSA/GTS",MAPS),"Tasmania",full.names=T))
+
+alp.GDD <- stack(dir(sprintf("%s/CHELSA/GTS",MAPS),"AustAlps",full.names=T))
+
+get.map.cells <- function(locs,map) {
+   s1 <- cellFromXY(map,locs)
+   res <- data.frame(cell=unique(s1[!is.na(s1)]))
+   return(res)
+}
+
+q2 <- unique(rbind(get.map.cells(Hm.xy,raster(tas.GDD,1)),
+   get.map.cells(Bg.xy,raster(tas.GDD,1))))
+
+get.map.cells(Hm.xy)
+get.map.cells(Hm.xy)
+get.map.cells(Hm.xy)
+
+s1 <- cellFromXY(raster(alp.GDD,1),Hm.xy)
+s2 <- cellFromXY(raster(tas.GDD,1),Hm.xy)
+
+ss <- cellFromXY(raster(alp.GDD,1),eco.centroids)
+dts <- values(alp.GDD)[ss[!is.na(ss)],]
+boxplot(dts)
+
+ss <- cellFromXY(raster(tas.GDD,1),eco.centroids)
+dt2 <- values(tas.GDD)[ss[!is.na(ss)],]
+
+dt3 <- values(tas.GDD)[q2$cell,]
+boxplot(dt3,at=seq(1979,2013)-.25)
+boxplot(dt2,col=rgb(.9,.1,.1,.5),border=rgb(.5,.1,.1,.5),add=T,at=seq(1979,2013)+.25)
+
+boxplot(dt2)
+abline(h=median(apply(dt3,1,median)))
+
+
+matplot(t(dt2),type='l')
+
+##cellFromPolygon(raster(tas.GDD,1), as_Spatial(st_zm(eco.polygons)))
+```
+
+In order to calculate the GDD value for each ecosystem location, we use inverse distance weighted interpolation to aggregate values from the neighboring NARCLiM data cells. This is an example for the GDD values for year 1990 for one ecosystem location point:
+
+```{r subset-GDD, include=TRUE}
+
+ss <- subset(GDD, year %in% 1990 & n>360 &
+   lon>(min(eco.centroids[,1])-1) & lon<(max(eco.centroids[,1])+1) &
+      lat>(min(eco.centroids[,2])-1) & lat<(max(eco.centroids[,2])+1))
+
+s2 <- eco.centroids[1:20,]
+
+dst1 <- pointDistance(ss[,2:1],s2,lonlat=T,allpairs=T)
+
+```
+
+Here we select the nearest points and average them using the inverse distance as weights:
+
+```{r example-GDD-idw, include=TRUE}
+## distance to nearest cells
+(d <- dst1[dst1[,1]<15000,1])
+## GDD values
+(x <- ss$GDD[dst1[,1]<15000])
+#Inverse distance weighting
+weighted.mean(x,1/d^4.5)
+
+```
+
+We write a function and verify:
+
+```{r GDD-idw, include=TRUE}
+idw <- function(x,d,p=1) {
+   q <- d<15000
+   w <- 1/(d[q])^p
+   g <- x[q] * w
+   ##y <- sum(g,na.rm=T)/sum(w,na.rm=T)
+   y <- weighted.mean(x[q],w,na.rm=T)
+   return(y)
+}
+
+idw(x=ss$GDD,d=dst1[,1],p=4.5)
+
+```
+
+And proceed with the calculation for all ecosystem locations:
+
+
+```{r GDD-points, include=TRUE}
+
+tst <- apply(dst1,2,function(d) idw(x=ss$GDD,d,p=4.5))
+
+slc <- c(1,5,11,18)
+plot(ss[,2:1],pch=3,cex=1,ylim=c(-36.65,-36.25),xlim=c(148.15,148.45),col="slateblue4")
+text(ss$lon,ss$lat,round(ss$GDD,1),cex=.75,col="blue",adj=-.1)
+points(s2,cex=.85,col="pink")
+text(s2[slc,1],s2[slc,2],round(tst[slc],2),cex=.65,col=2,adj=-.1)
+legend("topright", c("NARCLiM cell centers", "Ecosystem polygon centroids"),
+   pch=c(3,1), col=c("slateblue4","pink"),bg="white",cex=.8)
+
+```
+
+Now we run this calculation for all locations and years
+ aggregate GDD values per cell using inverse distance weighted interpolation:
+
+
+```{r calculate-GDD, include=TRUE}
+if (!exists("gdd.eco")) {
+   gdd.eco <- data.frame(eco.centroids)
+
+   for (PERIOD in c("1990-2009","2020-2039","2060-2079")) {
+      load(sprintf("%s/%s-%s-%s.rda",RDATA,PERIOD,MODEL,PRM))
+
+      for (yy in unique(GDD$year)) {
+         ss <- subset(GDD, year %in% yy & n>360 &
+            lon>(min(eco.centroids[,1])-1) & lon<(max(eco.centroids[,1])+1) &
+               lat>(min(eco.centroids[,2])-1) & lat<(max(eco.centroids[,2])+1))
+
+         if(nrow(ss)>0) {
+            dst1 <- pointDistance(ss[,2:1],eco.centroids,lonlat=T,allpairs=T)
+            gdd.eco[yy] <- apply(dst1,2,function(d) idw(x=ss$GDD,d,p=4.5))
+         }
+      }   
+   }   
+}
+
+valid.eco <- apply(!is.na(gdd.eco[,-(1:2)]),1,sum)>10
+gdd.eco <- gdd.eco[valid.eco,]
+head(gdd.eco[,1:7])
+
+```
+
+
+# Trend in GDD according to climate models
+
+For one location, we can calculate the trend in annual GDD for the whole time period, and interpolate the expected values for years 2000 and 2050:
+
+```{r interpolate-values, include=TRUE}
+y <- unlist(gdd.eco[1,-(1:2)])
+x <- as.numeric(colnames(gdd.eco)[-(1:2)])
+mdl <- lm(y~x,subset=y>0)
+IV <- predict(mdl,data.frame(x=2000))
+FV <- predict(mdl,data.frame(x=2050))
+
+plot(x,y,type='n',xlab="Year",ylab="GDD")
+rect(2000,-3000,2050,3000,col="palegoldenrod",border="palegoldenrod")
+points(x,y,col="maroon",pch=1.2)
+abline(mdl,lty=2)
+points(2000,IV,pch=19,cex=1.6,type="p")
+points(2050,FV,pch=19,cex=1.6,type="p")
+text(2000,IV*.9,sprintf("Initial value = %0.2f",IV),adj=c(0,1))
+text(2050,FV*1.1,sprintf("Final value = %0.2f",FV),adj=c(1,1))
+```
+
+# Calculate relative severity and extent
+
+If we set an *arbitrary* collapse threshold value of $CT=2000$, the relative severity for this location is:
+
+```{r relative-severity, include=TRUE}
+
+CT <- 2000
+
+(FV-IV)/(CT-IV)
+
+```
+
+We can now repeat this for all locations, and calculate the relative severity for all units:
+
+```{r extent-and-severity, include=TRUE}
+x <- as.numeric(colnames(gdd.eco)[-(1:2)])
+CT <- 2000
+eco.RS <- data.frame()
+for (k in 1:nrow(gdd.eco)) {
+   y <- unlist(gdd.eco[k,-(1:2)])
+   mdl <- lm(y~x,subset=y>0)
+   IV <- predict(mdl,data.frame(x=2000))
+   FV <- predict(mdl,data.frame(x=2050))
+   eco.RS <- rbind(eco.RS,data.frame(k,RS=(FV-IV)/(CT-IV)))
+}
+summary(eco.RS$RS)
+```
+
+In this case, relative severity is > 50% for all localities (>80% extent), thus the resulting category would be EN.
+
+
+# How to determine a meaningful collapse threshold?
+
+We could use reference data to estimate a more appropriate collapse threshold. For example *Hakea microcarpa* was mentioned as a species that could invade Feldmark under rising temperatures. We use occurrence localities from the Atlas of Living Australia as  of an external potentially invasive species)
+
+```{r Hakea-microcarpa, include=TRUE}
+arch <- sprintf("%s/Hakea-microcarpa-locs.csv",MAPS)
+Hm.xy <- unique(read.table(arch,head=F))
+coordinates(Hm.xy) <- 1:2
+proj4string(Hm.xy) <-
+   '+proj=utm +zone=55 +south +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs'
+Hm.ll <- spTransform(Hm.xy,"+init=epsg:4326")
+```
+
+The occurrence records are very widespread, in Tasmania the distribution of *Hakea microcarpa* has little overlap with the distribution of the ecosystem, but in the mainland the Feldmark has a very restricted distribution (2 cells from the NARCLiM domain), and it overlaps with records of *H. microcarpa*. We can explore the map interactively:
+
+```{r feldmark-hakea-plotly-map}
+
+map1 %>% add_markers(data=data.frame(coordinates(Hm.ll)), x=~V1, y=~V2,
+   color = I("green"), size=10, name="H. microcarpa") %>%
+   layout(
+      mapbox = list(
+         zoom = 8,
+         center = list(lat = -36.5, lon = 148.5)
+      )
+   )
+```
+
+
+
+```{r distribution-all, include=FALSE,echo=FALSE}
+# alternative static map:
+plot(Hm.ll,col=2,cex=.5)
+points(eco.centroids,cex=.5)
+plot(Hm.ll,col=2,cex=.5,ylim=c(-37,-36),xlim=c(148,149))
+points(unique(GDD[,2:1]),pch=22,cex=8)
+points(eco.centroids,cex=.5)
+```
+
+We can calculate the expected GDD values for the locations with *Hakea microcarpa*:
+
+```{r GDD-Hakea, include=TRUE}
+if (!exists("gdd.col")) {
+   xys2 <- coordinates(Hm.ll)
+   gdd.col <- data.frame(xys2)
+
+   for (PERIOD in c("1990-2009")) {
+      load(sprintf("%s/%s-%s-%s.rda",RDATA,PERIOD,MODEL,PRM))
+
+      for (yy in unique(GDD$year)) {
+         ss <- subset(GDD, year %in% yy & n>360 &
+            lon>(min(eco.centroids[,1])-1) & lon<(max(eco.centroids[,1])+1) &
+               lat>(min(eco.centroids[,2])-1) & lat<(max(eco.centroids[,2])+1))
+         if(nrow(ss)>0) {
+            dst2 <- pointDistance(ss[,2:1],xys2,lonlat=T,allpairs=T)
+            gdd.col[yy] <- apply(dst2,2,function(d) idw(x=ss$GDD,d,p=4.5))
+         }
+      }   
+   }   
+}
+valid.col <- apply(!is.na(gdd.col[,-(1:2)]),1,sum)>10
+gdd.col <- gdd.col[valid.col,]
+
+head(gdd.col[,1:7])
+
+```
+
+But there is considerable overlap and no clear threshold to separate the ecosystem from the areas with presence of *H. microcarpa*
+
+```{r GDD-Hakea-vs-Feldmark, include=TRUE}
+x <- as.numeric(colnames(gdd.col)[-(1:2)])
+y <- as.numeric(colnames(gdd.eco)[-(1:2)])
+
+boxplot(gdd.col[,-(1:2)],at=x,col=grey(.8),border=grey(.6))
+matpoints(y,t(gdd.eco[,-(1:2)]),pch=1,col="red",cex=1)
+
+```
