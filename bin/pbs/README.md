@@ -51,6 +51,8 @@ cd $WORKDIR
 
 qsub -l select=1:ncpus=1:mem=32gb,walltime=4:00:00 -J 1-2 $SCRIPTDIR/bin/pbs/calculate-GDD.pbs
 
+qsub -l select=1:ncpus=2:mem=16gb,walltime=4:00:00 -J 3-4 $SCRIPTDIR/bin/pbs/calculate-GDD.pbs
+
 qsub -J 5-36 $SCRIPTDIR/bin/pbs/calculate-GDD.pbs
 qstat -tu $(whoami)
 ```
