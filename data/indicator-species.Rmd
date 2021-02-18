@@ -1,12 +1,34 @@
-# Selecting species
+# Selecting species for fjaeldmark
 
-Two species invade feldmark in Kosciuszko National Park (within a 40-50y timeframe): _Poa caespitosa_ and _Celmisia longifolia_.
+## Characteristic Native Biota
 
-These invasions are dependent upon sufficient soil accumulation in feldmark areas. We assume that soil accumulation and the right temperatures for growth are intertwined processes.
+In New South Wales (Costin 1954; Costin et al., 2000; McDougall and Walsh, 2007; McVean, 1969):
+* diagnostic species: *Epacris microphylla* s.l., *Colobanthus pulvinatus*, *Ewartia nubigena*, *Luzula australasica* subsp. *dura* and *Poa fawcettiae*.
+* Less common species: *Trisetum spicatum*, *Agrostis muelleriana*, *Leucochrysum alpinum*, *Senecio pectinatus var. major*, *Celmisia costiniana* and *Celmisia pugioniformis*
+* Most plants recorded in fjaeldmark also occur in other ecosystems
+* cushion plants, prostrate forbs and crustose lichens that are largely restricted to this community: *Colobanthus pulvinatus*, *Veronica densifolia* and *Kelleria dieffenbachia*
+* other species are also largely restricted to this ecosystem: the entire Australian population of *Rytidosperma pumilum*, and most of the distribution of two endemic forbs, *Rannunculus acrophilus* and *Eurphrasia collina subsp. lapidosa*
+* There is a gradual transition from fjaeldmark to closed heath dominated by Epacris
 
-For Tasmania, TBC: _Hakea microcarpa_ and possibly _Baeckea gunniana_ as well.
+
+ In Tasmania (Annandale and Kirkpatrick 2017; Kirkpatrick, 1997; Venn et al. 2017):
+* highly variable, lack marker species and are similar to surrounding heathlands
+* Mat heath is a key component, comprising of scleromorphic shrubs:  *Gaultheria depressa*, *Pentachondra pumila*, *Cryptandra alpina*
+* Vegetation may be dominated by: *Colobanthus pulvinatus*, *Orites revoluta*, *Ozothamnus rodwayi*, *Exocarpos humifusus* or *Leptospermum rupestre*, *Dracophyllum minimum*
+
+
+## Grass encroachment and plant invasions
+
+* Climate warming may to lead to encroachment of grass/mat heath from adjacent ecosystems such as closed heath, and open grassy heathlands and herbfields (Annandale and Kirkpatrick, 2017; Verrall & Pickering 2018; NSW OEH 2019).
+
+* In the Snowy Mountains of New South Wales, two species invade feldmark  (within a 40-50y timeframe): _Poa caespitosa_ and _Celmisia longifolia_. (Costin et al. 1969)
+
+* In Tasmania, climate warming may lead to the encroachment of adjacent shrubs, including *Baeckea gunniana*, and other sedges, herbs and rushes. (Barlow et al., 1968; Costin, 1954; Lynch and Kirkpatrick, 1995). (Check if also  _Hakea microcarpa_)
 
 ## Data download from ALA
+
+
+
 
 We can download the species data from ALA using the `spocc` functions:
 
@@ -19,7 +41,15 @@ require(raster)
 
 e1 <- extent(140,156,-44,-27)
 
-df <- occ(query = c('Poa caespitosa','Celmisia longifolia','Hakea microcarpa','Baeckea gunniana'), from = c('ala'),limit=3000)
+
+nat.list.alp <- c("Epacris microphylla", "Colobanthus pulvinatus", "Ewartia nubigena", "Luzula australasica subsp. dura", "Poa fawcettiae", "Trisetum spicatum", "Agrostis muelleriana", "Leucochrysum alpinum", "Senecio pectinatus var. major", "Celmisia costiniana", "Celmisia pugioniformis", "Colobanthus pulvinatus", "Veronica densifolia", "Kelleria dieffenbachia", "Rytidosperma pumilum", "Rannunculus acrophilus", "Eurphrasia collina subsp. lapidosa")
+
+nat.list.tas <- c("Gaultheria depressa", "Pentachondra pumila", "Cryptandra alpina", "Colobanthus pulvinatus", "Orites revoluta", "Ozothamnus rodwayi", "Exocarpos humifusus", "Leptospermum rupestre", "Dracophyllum minimum")
+
+inv.list.alp <- c('Poa caespitosa','Celmisia longifolia')
+inv.list.tas <- c('Hakea microcarpa','Baeckea gunniana')
+
+df <- occ(query = c(nat.list.alp,nat.list.tas,inv.list.alp,inv.list.tas), from = c('ala'),limit=6000)
 
 
 
@@ -31,22 +61,48 @@ reprojectData <- function(w) {
    return(y)
 }
 
+for (nn in names(df$ala$data)) {
+   if (nrow(df$ala$data[[nn]])>0)
+      assign(sprintf("%s.xy",nn), reprojectData(df$ala$data[[nn]]))
+}
 
-Pc.xy <- reprojectData(df$ala$data$Poa_caespitosa)
-Hm.xy <- reprojectData(df$ala$data$Hakea_microcarpa)
-Bg.xy <- reprojectData(df$ala$data$Baeckea_gunniana)
-Cl.xy <- reprojectData(df$ala$data$Celmisia_longifolia)
+plot(Epacris_microphylla.xy)
+points(Poa_fawcettiae.xy,col=2)
 
-plot(Hm.xy)
-points(Bg.xy,col=2)
-points(Pc.xy,col=3)
-points(Cl.xy,col=4)
 
-save(file="Indicator-species.rda",Pc.xy,Hm.xy,Bg.xy,Cl.xy)
-#write.table(file="Hakea-microcarpa-locs.csv",unique(coordinates(dts.xy)),sep=" ", row.names = FALSE, col.names = FALSE)
+save(file="Indicator-species.rda",list=ls(pattern=".xy$"))
 ```
+
+Copy this to a location in Katana:
 
 ```sh
 scp Indicator-species.rda $zID@kdm.restech.unsw.edu.au:/srv/scratch/$zID/gisdata/aust-alps/
 
 ```
+
+#### References
+
+
+Annandale, B., & Kirkpatrick, J. B. (2017). Diurnal to decadal changes in the balance between vegetation and bare ground in Tasmanian fjaeldmark. Arctic, Antarctic, and Alpine Research, 49(3), 473-486.
+
+Barrow, M. D., Costin, A. B., & Lake, P. (1968). Cyclical changes in an Australian fjaeldmark community. The Journal of Ecology, 89-96.
+
+Costin, A. B. (1954). A study of the ecosystems of the Monaro region of New South Wales, with special reference to soil erosion. AH Pettifer, NSW Government, Sydney.
+
+Costin, A. B. , D. J. Wimbush, M. D. Barrow, P. Lake (1969) Development of soil and vegetation climaxes in the Mount Kosciusko area, Australia. Vegetatio Acta Geobot volume 18, issue 1-6, P273-288  DOI: 10.1007/bf00332842
+
+Costin, A. B., Gray, M., Totterdell, C. J., & Wimbush, D. J. (2000). Kosciuszko Alpine Flora. CSIRO publishing, Melbourne.
+
+Kirkpatrick, J.B. (1997). Alpine Tasmania: an illustrated guide to the flora and vegetation. Oxford University Press, Melbourne.
+
+Lynch, A. J. J., & Kirkpatrick, J. B. (1995). Pattern and process in alpine vegetation and landforms at Hill One, Southern Range, Tasmania. Australian Journal of Botany, 43(6), 537-554.
+
+McDougall, K. L., & Walsh, N. G. (2007). Treeless vegetation of the Australian Alps. Cunninghamia, 10(1), 1-57.
+
+McVean, D. N. (1969). Alpine vegetation of the central Snowy Mountains of New South Wales. The Journal of Ecology, 67-86.
+
+NSW OEH (2019). Windswept Fjaeldmark in the Australian Alps Bioregion – profile. Department of Planning, Industry and Environment, Office of Environment and Heritage. Retrieved 12 January 2020, from https://www.environment.nsw.gov.au/threatenedspeciesapp/profile.aspx?id=20297
+
+Venn, S. E, Kirkpatrick, J. B., McDougall, K., Walsh, N., Whinam, J. & Williams, R. J. (2017). Chapter 19: Alpine, Sub-alpine and Sub-Antarctic Vegetation of Australia. In Keith D. A. (ed.) Australian Vegetation, Cambridge University Press, Melbourne, pp. 461-489.
+
+Verrall, B. & Pickering, C.M. (2018). Recovery of snow-dependant plant communities in Australia from fire. Honours Dissertation. School of Environment and Science, Environmental Futures Research Institute, Griffith University, Gold Coast.
