@@ -11,8 +11,13 @@ cd $WORKDIR
 ```
 
 ```r
+#!R --vanilla
 require(sp)
 require(raster)
+require(chron)
+require(dplyr)
+
+
 e1 <- extent(140,156,-44,-27)
 
 
@@ -23,21 +28,26 @@ proj4string(wst) <- CRS("+init=epsg:4326")
 
 BOM.GDD <- data.frame()
 for (slc in wst.xy@data$stn_num) {
-   dt1 <- read.csv(sprintf("ACORN-SAT/tmin.%06d.daily.csv",slc), skip=2,header=F,col.names=c("date","tmin","stn_num","stn_name"))
-   dt2 <- read.csv(sprintf("ACORN-SAT/tmax.%06d.daily.csv",slc), skip=2,header=F,col.names=c("date","tmax","stn_num","stn_name"))
-    dts <- merge(dt1[,1:2],dt2[,1:2],by="date")
+     dt1 <- read.csv(sprintf("ACORN-SAT/tmin.%06d.daily.csv",slc), skip=2,header=F,col.names=c("date","tmin","stn_num","stn_name"), as.is=T)
+     dt2 <- read.csv(sprintf("ACORN-SAT/tmax.%06d.daily.csv",slc), skip=2,header=F,col.names=c("date","tmax","stn_num","stn_name"), as.is=T)
+      dts <- merge(dt1[,1:2],dt2[,1:2],by="date")
 
+    ## use approx to fill the NA with interpolation from neighboring values
+  dts %>% mutate(f1=chron(dts$date,format="y-m-d")) %>% mutate(tmin.cor=approx(f1,tmin,f1)$y,tmax.cor=approx(f1,tmax,f1)$y) -> dts
 
-   temp.base <- 0
-   dts$DHC <- (dts$tmax+dts$tmin)/2 - temp.base
-   dts$year <- as.numeric(substr(dts$date,0,4))
+  ## this might introduce some errors (tmax above tmin), but this is not critical
+  # subset(dts,tmax.cor<tmin.cor)
+
+  ## Accumulate heat above base temperature
+  dts %>%  mutate(DHC0=(tmax.cor+tmin.cor)/2 - 0, DHC5=(tmax.cor+tmin.cor)/2 - 5,year=years(f1)) -> dts
 
    # Year summary of GDD
-
-   gdd <- with(dts,aggregate(data.frame(n=!is.na(DHC),GDD=ifelse(DHC>0,DHC,0)),list(year=year),sum,na.rm=T))
-   gdd$stn_num <- slc
-   gdd$stn_name <- as.character(subset(wst.xy@data,stn_num==slc)$stn_name)
-
+   gdd <- dts %>% group_by(year) %>%
+    summarise(n=n(), n.measured=sum(!is.na(tmin) & !is.na(tmax)),
+      GDD0=sum(ifelse(DHC0>0,DHC0,0)), GDD5=sum(ifelse(DHC5>0,DHC5,0)),
+      GDD0.raw=sum(ifelse(!is.na(tmin) & !is.na(tmax) &  DHC0>0,DHC0,0)),
+      GDD5.raw=sum(ifelse(!is.na(tmin) & !is.na(tmax) &  DHC5>0,DHC5,0))) %>%
+      mutate(stn_num=slc,stn_name= as.character(subset(wst.xy@data,stn_num==slc)$stn_name))
    BOM.GDD <- rbind(BOM.GDD,gdd)
 }
 
@@ -48,8 +58,15 @@ plot(wst.xy)
 points(subset(wst.xy,stn_num==96003),col=2)
 
 
+save(file="BOM-ACORN-data.rda",BOM.GDD,wst.xy)
 ```
 
+Copy this to a location in Katana:
+
+```sh
+scp BOM-ACORN-data.rda $zID@kdm.restech.unsw.edu.au:/srv/scratch/$zID/gisdata/aust-alps/
+
+```
 Check if:
 * correlation between BOM data and CHELSA / NARCLiM data
 * check if trend is consistent (why is it negative in CHELSA/NSW but positive in CHELSA Tas?)

@@ -1,0 +1,348 @@
+---
+title: "Compare growing degree days (GDD) from different sources"
+author: "Ferrer-Paris, J.R."
+date: "February 19, 2021"
+output:
+  html_document: default
+  pdf_document: default
+  word_document: default
+editor_options:
+  chunk_output_type: console
+always_allow_html: true
+---
+
+```{r setup, include=FALSE}
+
+## load libraries
+require(ncdf4)
+require(chron)
+require(raster)
+require(sf)
+require(abind)
+require(units)
+require(plotly)
+require(lattice)
+require(forecast)
+require(dplyr)
+require(reshape2)
+
+
+## set up data directories and other variables
+SCRIPTDIR <- sprintf("/home/%s/proyectos/UNSW/australian-alps-climate-change",system("whoami",intern=T))
+MAPS <- sprintf("/srv/scratch/%s/gisdata/aust-alps",system("whoami",intern=T))
+RDATA <- sprintf("/srv/scratch/%s/gisdata/aust-alps/Rdata",system("whoami",intern=T))
+PERIOD <- "1990-2009"
+MODEL <- "CCCMA3.1"
+PRM <- "R2"
+Sys.setenv('MAPBOX_TOKEN' = readLines("~/.mapbox.token"))
+
+## useful functions:
+get.map.cells <- function(locs,map) {
+   s1 <- cellFromXY(map,get(locs))
+   v1 <- unique(s1[!is.na(s1)])
+   res <- data.frame(points=rep(locs,length(v1)),
+      cell=v1)
+   return(res)
+}
+```
+
+# Weather station data
+
+
+```{r feldmark-shape, include=TRUE}
+load(sprintf("%s/BOM-ACORN-data.rda",MAPS))
+```
+
+
+
+# GDD values from CHELSA v1.2 timeseries
+
+We load the GDD data for the period 1979 to 2013 for Tasmania and the Australian Alps:
+
+```{r load-CHELSA-data, include=TRUE}
+tas.GDD <- stack(dir(sprintf("%s/CHELSA/GTS",MAPS),"Tasmania",full.names=T))
+alp.GDD <- stack(dir(sprintf("%s/CHELSA/GTS",MAPS),"AustAlps",full.names=T))
+
+q1 <- cellFromXY(raster(alp.GDD,1),wst.xy)
+wst.alp <- subset(wst.xy,!is.na(q1))
+dts.alp <- values(alp.GDD)[q1[!is.na(q1)],]
+
+q2 <- cellFromXY(raster(tas.GDD,1),wst.xy)
+wst.tas <- subset(wst.xy,!is.na(q2))
+dts.tas <- values(tas.GDD)[q2[!is.na(q2)],]
+
+matplot(1979:2013,t(dts.tas))
+
+
+d1 <- BOM.GDD %>% filter(stn_num %in% wst.alp@data$stn_num) %>% dcast(stn_num~year,value.var="GDD")
+yy <- as.numeric(colnames(d1)[-1])
+matplot(yy,t(d1[,-1]),type='l',lty=1,lwd=2,xlim=c(1970,2020))
+matlines(1979:2013,t(dts.alp),lty=2,lwd=2)
+
+
+d2 <- BOM.GDD %>% filter(stn_num %in% wst.tas@data$stn_num) %>% mutate(GDD.cor=GDD*365/n) %>%  dcast(stn_num~year,value.var="GDD.cor")
+yy <- as.numeric(colnames(d2)[-1])
+matplot(yy,t(d2[,-1]),type='l',lty=1,lwd=2,col=1,xlim=c(1970,2020))
+matlines(1979:2013,t(dts.tas),lty=2,lwd=2,col=2)
+
+```
+
+
+
+We can explore the locations with an interactive map (only in HTML document):
+
+```{r feldmark-plotly-map}
+
+map1 <-
+plot_mapbox() %>% add_sf(eco.xy)
+plot_mapbox(data.frame(eco.centroids)) %>%
+   add_markers(x=~X, y=~Y, color = I("maroon"), size=10,
+      name="Feldmark ecosystem")
+
+map1 %>% add_markers(data=data.frame(coordinates(Hm.ll)), x=~V1, y=~V2,
+   color = I("green"), size=10, name="H. microcarpa") %>%
+   layout(
+      mapbox = list(
+         zoom = 8,
+         center = list(lat = -36.5, lon = 148.5)
+      )
+   )
+```
+
+We query the values of the GDD data at the location of each species and the occurrences of the ecosystem.
+
+```{r CHELSA-data-locs, include=TRUE}
+
+qs <- data.frame()
+for (ii in ls(pattern="xy$")) {
+   q1 <- get.map.cells(ii,raster(alp.GDD,1))
+   if (nrow(q1)>0)
+      qs <- rbind(qs,q1)
+   rm(q1)
+}
+qs$spp <- trim(gsub("_|.xy"," ",qs$points))
+
+
+qs <- data.frame()
+for (ii in ls(pattern="xy$")) {
+   q1 <- get.map.cells(ii,raster(tas.GDD,1))
+   if (nrow(q1)>0)
+      qs <- rbind(qs,q1)
+   rm(q1)
+}
+qs$spp <- trim(gsub("_|.xy"," ",qs$points))
+dts <- values(tas.GDD)[qs$cell,]
+dts.tas <- cbind(qs,dts)
+
+```
+
+
+
+```{r CHELSA-data-tas, include=TRUE}
+dts.alp$grp <- "other"
+dts.alp$grp[dts.alp$spp %in% "eco"] <- "Feldmark"
+dts.alp$grp[dts.alp$spp %in% nat.list.alp] <- "diag. spp"
+dts.alp$grp[dts.alp$spp %in% c(inv.list.alp,inv.list.tas)] <- "inv. spp"
+
+dts.tas$grp <- "other"
+dts.tas$grp[dts.tas$spp %in% "eco"] <- "Feldmark"
+dts.tas$grp[dts.tas$spp %in% nat.list.tas] <- "diag. spp"
+dts.tas$grp[dts.tas$spp %in% inv.list.tas] <- "inv. spp"
+
+## histogram(~CHELSA_gts0_2010_V1.2.1.AustAlps|grp,dts.alp)
+## histogram(~CHELSA_gts0_2010_V1.2.1.Tasmania|grp,dts.tas)
+
+```
+
+
+```{r CHELSA-data-tas, include=TRUE}
+
+
+x <- dts.alp$CHELSA_gts0_1980_V1.2.1.AustAlps
+ss <- dts.alp$grp %in% "diag. spp"
+d1 <-  density(x[ss])
+ss <- dts.alp$grp %in% "inv. spp"
+d2 <-  density(x[ss])
+
+cf <- sum(d1$y)/sum(d2$y)
+
+ cop.alp <- min(d1$x[d1$y < (d2$y*cf/3)])
+
+
+ x <- dts.tas$CHELSA_gts0_1980_V1.2.1.Tasmania
+ ss <- dts.tas$grp %in% "diag. spp"
+ d3 <-  density(x[ss])
+ ss <- dts.tas$grp %in% "inv. spp"
+ d4 <-  density(x[ss])
+
+ cf <- sum(d3$y)/sum(d4$y)
+
+cop.tas <- min(d1$x[d1$y < (d2$y*cf/3)])
+
+```
+
+
+```{r CHELSA-data-tas, include=TRUE}
+
+
+layout(matrix(1:2))
+par(mar=c(4,4,4.5,1))
+plot(d1,lwd=2,main="NSW",xlab="GDD (>0°C)")
+lines(d2$x,d2$y*cf,col=2,lwd=2)
+abline(v=cop.alp,lty=3)
+
+plot(d3,lwd=2,main="Tasmania",xlab="GDD (>0°C)")
+lines(d4$x,d4$y*cf,col=2,lwd=2)
+abline(v=cop.tas,lty=3)
+
+
+```
+
+
+```{r CHELSA-data-tas, include=TRUE}
+
+w <- t(dts.alp[dts.alp$grp == "Feldmark",grep("CHELSA",colnames(dts.alp))])
+
+hs <- 50 - (2013-1979)
+tsDH <- ts(w, start = c(1979, 1), end = c(2013, 1), frequency = 1)
+fit <- tslm(tsDH ~ trend)
+fcst <- forecast(fit, h=hs, level=c(80))
+
+plot(NA,xlim=c(1979,2029),ylim=c(0,4000))
+boxplot(t(w),at=1979:2013,add=T)
+abline(h=cop.alp,lty=3)
+
+#lines(tsDH)
+RS <- c()
+for (j in 1: length(fcst$forecast)) {
+   lines(2014:2029,fcst$forecast[[j]]$mean,col=3)
+   lines(2014:2029,fcst$forecast[[j]]$upper,col=2)
+   lines(2014:2029,fcst$forecast[[j]]$lower,col=4)
+   IV <- mean(tsDH[1:5,j])
+   FV <- max(fcst$forecast[[j]]$upper)
+   RS <- c(RS,(FV-IV)/(cop-IV))
+
+}
+RS[RS<0]
+1-ecdf(RS)(c(0.3,.5,.8))
+
+```
+
+
+
+# Trend in GDD according to climate models
+
+For one location, we can calculate the trend in annual GDD for the whole time period, and interpolate the expected values for years 2000 and 2050:
+
+```{r interpolate-values, include=TRUE}
+y <- unlist(gdd.eco[1,-(1:2)])
+x <- as.numeric(colnames(gdd.eco)[-(1:2)])
+mdl <- lm(y~x,subset=y>0)
+IV <- predict(mdl,data.frame(x=2000))
+FV <- predict(mdl,data.frame(x=2050))
+
+plot(x,y,type='n',xlab="Year",ylab="GDD")
+rect(2000,-3000,2050,3000,col="palegoldenrod",border="palegoldenrod")
+points(x,y,col="maroon",pch=1.2)
+abline(mdl,lty=2)
+points(2000,IV,pch=19,cex=1.6,type="p")
+points(2050,FV,pch=19,cex=1.6,type="p")
+text(2000,IV*.9,sprintf("Initial value = %0.2f",IV),adj=c(0,1))
+text(2050,FV*1.1,sprintf("Final value = %0.2f",FV),adj=c(1,1))
+```
+
+# Calculate relative severity and extent
+
+If we set an *arbitrary* collapse threshold value of $CT=2000$, the relative severity for this location is:
+
+```{r relative-severity, include=TRUE}
+
+CT <- 2000
+
+(FV-IV)/(CT-IV)
+
+```
+
+We can now repeat this for all locations, and calculate the relative severity for all units:
+
+```{r extent-and-severity, include=TRUE}
+x <- as.numeric(colnames(gdd.eco)[-(1:2)])
+CT <- 2000
+eco.RS <- data.frame()
+for (k in 1:nrow(gdd.eco)) {
+   y <- unlist(gdd.eco[k,-(1:2)])
+   mdl <- lm(y~x,subset=y>0)
+   IV <- predict(mdl,data.frame(x=2000))
+   FV <- predict(mdl,data.frame(x=2050))
+   eco.RS <- rbind(eco.RS,data.frame(k,RS=(FV-IV)/(CT-IV)))
+}
+summary(eco.RS$RS)
+```
+
+In this case, relative severity is > 50% for all localities (>80% extent), thus the resulting category would be EN.
+
+
+# How to determine a meaningful collapse threshold?
+
+We could use reference data to estimate a more appropriate collapse threshold. For example *Hakea microcarpa* was mentioned as a species that could invade Feldmark under rising temperatures. We use occurrence localities from the Atlas of Living Australia as  of an external potentially invasive species)
+
+```{r Hakea-microcarpa, include=TRUE}
+arch <- sprintf("%s/Hakea-microcarpa-locs.csv",MAPS)
+Hm.xy <- unique(read.table(arch,head=F))
+coordinates(Hm.xy) <- 1:2
+proj4string(Hm.xy) <-
+   '+proj=utm +zone=55 +south +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs'
+Hm.ll <- spTransform(Hm.xy,"+init=epsg:4326")
+```
+
+The occurrence records are very widespread, in Tasmania the distribution of *Hakea microcarpa* has little overlap with the distribution of the ecosystem, but in the mainland the Feldmark has a very restricted distribution (2 cells from the NARCLiM domain), and it overlaps with records of *H. microcarpa*. We can explore the map interactively:
+
+
+
+```{r distribution-all, include=FALSE,echo=FALSE}
+# alternative static map:
+plot(Hm.ll,col=2,cex=.5)
+points(eco.centroids,cex=.5)
+plot(Hm.ll,col=2,cex=.5,ylim=c(-37,-36),xlim=c(148,149))
+points(unique(GDD[,2:1]),pch=22,cex=8)
+points(eco.centroids,cex=.5)
+```
+
+We can calculate the expected GDD values for the locations with *Hakea microcarpa*:
+
+```{r GDD-Hakea, include=TRUE}
+if (!exists("gdd.col")) {
+   xys2 <- coordinates(Hm.ll)
+   gdd.col <- data.frame(xys2)
+
+   for (PERIOD in c("1990-2009")) {
+      load(sprintf("%s/%s-%s-%s.rda",RDATA,PERIOD,MODEL,PRM))
+
+      for (yy in unique(GDD$year)) {
+         ss <- subset(GDD, year %in% yy & n>360 &
+            lon>(min(eco.centroids[,1])-1) & lon<(max(eco.centroids[,1])+1) &
+               lat>(min(eco.centroids[,2])-1) & lat<(max(eco.centroids[,2])+1))
+         if(nrow(ss)>0) {
+            dst2 <- pointDistance(ss[,2:1],xys2,lonlat=T,allpairs=T)
+            gdd.col[yy] <- apply(dst2,2,function(d) idw(x=ss$GDD,d,p=4.5))
+         }
+      }
+   }
+}
+valid.col <- apply(!is.na(gdd.col[,-(1:2)]),1,sum)>10
+gdd.col <- gdd.col[valid.col,]
+
+head(gdd.col[,1:7])
+
+```
+
+But there is considerable overlap and no clear threshold to separate the ecosystem from the areas with presence of *H. microcarpa*
+
+```{r GDD-Hakea-vs-Feldmark, include=TRUE}
+x <- as.numeric(colnames(gdd.col)[-(1:2)])
+y <- as.numeric(colnames(gdd.eco)[-(1:2)])
+
+boxplot(gdd.col[,-(1:2)],at=x,col=grey(.8),border=grey(.6))
+matpoints(y,t(gdd.eco[,-(1:2)]),pch=1,col="red",cex=1)
+
+```
