@@ -36,14 +36,6 @@ MODEL <- "CCCMA3.1"
 PRM <- "R2"
 Sys.setenv('MAPBOX_TOKEN' = readLines("~/.mapbox.token"))
 
-## useful functions:
-get.map.cells <- function(locs,map) {
-   s1 <- cellFromXY(map,get(locs))
-   v1 <- unique(s1[!is.na(s1)])
-   res <- data.frame(points=rep(locs,length(v1)),
-      cell=v1)
-   return(res)
-}
 ```
 
 # Weather station data
@@ -65,7 +57,36 @@ alp.GDD <- stack(dir(sprintf("%s/CHELSA/GTS",MAPS),"AustAlps",full.names=T))
 
 q1 <- cellFromXY(raster(alp.GDD,1),wst.xy)
 wst.alp <- subset(wst.xy,!is.na(q1))
-dts.alp <- values(alp.GDD)[q1[!is.na(q1)],]
+dts.alp <- cbind(wst.alp@data,values(alp.GDD)[q1[!is.na(q1)],])
+
+
+dts.alp %>%  gather( raster, GTS0.CHELSA, CHELSA_gts0_1979_V1.2.1.AustAlps:CHELSA_gts0_2013_V1.2.1.AustAlps) %>% mutate(year=gsub("CHELSA_gts0_|_V1.2.1.AustAlps","",raster)) -> CHELSA.GTS0
+
+
+alp.ALL <- merge(BOM.GDD,CHELSA.GTS0,by=c("stn_num","stn_name","year"))
+
+alp.ALL %>% mutate(yy=as.numeric(as.character(year))) -> alp.ALL
+
+plot(GTS0.CHELSA~GDD0,alp.ALL)
+
+mdl <- lm(GTS0.CHELSA~GDD0+yy,alp.ALL)
+
+summary(mdl)
+
+##boxplot(I(GTS0.CHELSA-GDD0)~yy,data=alp.ALL)
+plot(I(GTS0.CHELSA-GDD0)~yy,data=alp.ALL)
+abline(h=0,lty=3,col=2,lwd=2)
+
+w <- subset(alp.ALL,stn_name %in% "Cabramurra" & yy %in% 1979:2013)$GDD0
+z <- subset(alp.ALL,stn_name %in% "Cabramurra" & yy %in% 1979:2013)$GTS0.CHELSA
+
+hs <- 50 - (2013-1979)
+tsGDD <- ts(w, start = c(1979, 1), end = c(2013, 1), frequency = 1)
+tsGTS <- ts(z, start = c(1979, 1), end = c(2013, 1), frequency = 1)
+fitGDD <- tslm(tsGDD ~ trend)
+fitGTS <- tslm(tsGTS ~ trend)
+fcstGDD <- forecast(fitGDD, h=hs, level=c(80))
+
 
 q2 <- cellFromXY(raster(tas.GDD,1),wst.xy)
 wst.tas <- subset(wst.xy,!is.na(q2))
@@ -74,10 +95,12 @@ dts.tas <- values(tas.GDD)[q2[!is.na(q2)],]
 matplot(1979:2013,t(dts.tas))
 
 
-d1 <- BOM.GDD %>% filter(stn_num %in% wst.alp@data$stn_num) %>% dcast(stn_num~year,value.var="GDD")
+d1 <- BOM.GDD %>% filter(stn_num %in% wst.alp@data$stn_num) %>% dcast(stn_num~year,value.var="GDD0")
+
+
 yy <- as.numeric(colnames(d1)[-1])
-matplot(yy,t(d1[,-1]),type='l',lty=1,lwd=2,xlim=c(1970,2020))
-matlines(1979:2013,t(dts.alp),lty=2,lwd=2)
+matplot(yy,t(d1[,-1]),type='l',lty=1,lwd=2,col=1,xlim=c(1970,2020))
+matlines(1979:2013,t(dts.alp),lty=2,lwd=2,col=2)
 
 
 d2 <- BOM.GDD %>% filter(stn_num %in% wst.tas@data$stn_num) %>% mutate(GDD.cor=GDD*365/n) %>%  dcast(stn_num~year,value.var="GDD.cor")
